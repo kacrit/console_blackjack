@@ -13,7 +13,7 @@ class Card:
         return f"{self.rank} of {self.suit}"
     
     def value(self):
-        """Return the Blackjack value of the card"""
+        """Return the value of the card in Blackjack"""
         if self.rank in ['Jack', 'Queen', 'King']:
             return 10
         elif self.rank == 'Ace':
@@ -44,7 +44,7 @@ class Deck:
         if len(self.cards) > 0:
             return self.cards.pop()
         else:
-            # If deck is empty, create a new shuffled deck
+            # If deck is empty, rebuild and shuffle
             self.build()
             self.shuffle()
             return self.cards.pop()
