@@ -1,134 +1,141 @@
-#!/usr/bin/env python3
 """
-Simple Command-line Blackjack Game
-Main game logic and user interface
+Main Blackjack game file
 """
 
-from deck import Deck
-from hand import Hand
+from cards import Deck, Card
+from game_logic import calculate_hand_value, is_blackjack, is_bust, determine_winner
 
 class BlackjackGame:
     def __init__(self):
         self.deck = Deck()
-        self.player_hand = Hand()
-        self.dealer_hand = Hand()
-        self.game_over = False
-    
-    def start_game(self):
-        """Start a new game of Blackjack"""
-        print("🎰 Welcome to Blackjack! 🎰")
-        print("=" * 40)
-        
-        # Shuffle deck and deal initial cards
         self.deck.shuffle()
-        self.player_hand.clear()
-        self.dealer_hand.clear()
+        self.player_hand = []
+        self.dealer_hand = []
         
-        # Deal initial cards (2 each)
-        self.player_hand.add_card(self.deck.deal())
-        self.dealer_hand.add_card(self.deck.deal())
-        self.player_hand.add_card(self.deck.deal())
-        self.dealer_hand.add_card(self.deck.deal())
+    def start_round(self):
+        """Start a new round of Blackjack"""
+        self.player_hand = []
+        self.dealer_hand = []
         
-        self.game_over = False
-        self.play_round()
-    
-    def play_round(self):
-        """Play one round of Blackjack"""
-        # Check for natural blackjack
-        if self.player_hand.is_blackjack():
-            self.show_hands(show_all=True)
-            print("🎉 Blackjack! You win! 🎉")
-            return
-        
-        # Player's turn
-        while not self.game_over:
-            self.show_hands()
+        # Deal initial cards
+        for _ in range(2):
+            self.player_hand.append(self.deck.deal())
+            self.dealer_hand.append(self.deck.deal())
             
-            if self.player_hand.is_busted():
-                print("💥 Bust! You lose. 💥")
-                self.game_over = True
-                break
+    def display_hands(self, show_all_dealer_cards=False):
+        """Display the current hands"""
+        print("\n" + "="*50)
+        print("DEALER'S HAND:")
+        if show_all_dealer_cards:
+            for card in self.dealer_hand:
+                print(f"  {card}")
+            print(f"  Total: {calculate_hand_value(self.dealer_hand)}")
+        else:
+            print(f"  {self.dealer_hand[0]}")
+            print("  [Hidden Card]")
             
-            action = input("\nDo you want to (H)it or (S)tand? ").strip().lower()
+        print("\nYOUR HAND:")
+        for card in self.player_hand:
+            print(f"  {card}")
+        print(f"  Total: {calculate_hand_value(self.player_hand)}")
+        print("="*50)
+        
+    def player_turn(self):
+        """Handle player's turn"""
+        while True:
+            self.display_hands()
+            
+            if is_bust(self.player_hand):
+                print("BUST! You went over 21.")
+                return
+                
+            if is_blackjack(self.player_hand):
+                print("BLACKJACK!")
+                return
+                
+            action = input("\nDo you want to (H)it or (S)tand? ").lower()
             
             if action in ['h', 'hit']:
-                self.player_hand.add_card(self.deck.deal())
-                print(f"You drew: {self.player_hand.cards[-1]}")
+                self.player_hand.append(self.deck.deal())
+                print(f"You drew: {self.player_hand[-1]}")
                 
             elif action in ['s', 'stand']:
-                self.dealer_play()
+                print("You stand.")
                 break
             else:
                 print("Invalid input. Please enter 'H' for Hit or 'S' for Stand.")
+                
+    def dealer_turn(self):
+        """Handle dealer's turn (dealer hits on 16 or less, stands on 17 or more)"""
+        print("\nDealer's turn...")
+        self.display_hands(show_all_dealer_cards=True)
         
-        self.ask_play_again()
-    
-    def dealer_play(self):
-        """Dealer's turn to play"""
-        print("\n🃏 Dealer's turn...")
-        self.show_hands(show_all=True)
-        
-        # Dealer hits until 17 or higher
-        while self.dealer_hand.get_value() < 17:
+        while calculate_hand_value(self.dealer_hand) < 17:
             print("Dealer hits...")
-            self.dealer_hand.add_card(self.deck.deal())
-            print(f"Dealer drew: {self.dealer_hand.cards[-1]}")
-            print(f"Dealer's hand: {self.dealer_hand}")
-        
-        self.determine_winner()
-    
-    def determine_winner(self):
-        """Determine the winner of the round"""
-        player_value = self.player_hand.get_value()
-        dealer_value = self.dealer_hand.get_value()
-        
-        print(f"\n{'='*40}")
-        print(f"Your hand: {self.player_hand} (Value: {player_value})")
-        print(f"Dealer's hand: {self.dealer_hand} (Value: {dealer_value})")
-        print('='*40)
-        
-        if dealer_value > 21:
-            print("🎉 Dealer busts! You win! 🎉")
-        elif player_value > dealer_value:
-            print("🎉 You win! 🎉")
-        elif player_value < dealer_value:
-            print("💸 Dealer wins! 💸")
+            self.dealer_hand.append(self.deck.deal())
+            print(f"Dealer drew: {self.dealer_hand[-1]}")
+            self.display_hands(show_all_dealer_cards=True)
+            
+        if is_bust(self.dealer_hand):
+            print("Dealer BUSTS!")
         else:
-            print("🤝 It's a tie! 🤝")
+            print("Dealer stands.")
+            
+    def play_round(self):
+        """Play one complete round of Blackjack"""
+        self.start_round()
         
-        self.game_over = True
-    
-    def show_hands(self, show_all=False):
-        """Display the current hands"""
-        print(f"\n{'='*40}")
-        print(f"Your hand: {self.player_hand} (Value: {self.player_hand.get_value()})")
+        # Check for immediate blackjack
+        player_blackjack = is_blackjack(self.player_hand)
+        dealer_blackjack = is_blackjack(self.dealer_hand)
         
-        if show_all:
-            print(f"Dealer's hand: {self.dealer_hand} (Value: {self.dealer_hand.get_value()})")
+        if player_blackjack and dealer_blackjack:
+            self.display_hands(show_all_dealer_cards=True)
+            print("Both have Blackjack! It's a push.")
+            return 'push'
+        elif player_blackjack:
+            self.display_hands(show_all_dealer_cards=True)
+            print("Blackjack! You win!")
+            return 'player'
+        elif dealer_blackjack:
+            self.display_hands(show_all_dealer_cards=True)
+            print("Dealer has Blackjack! You lose.")
+            return 'dealer'
+        
+        # Normal gameplay
+        self.player_turn()
+        
+        if not is_bust(self.player_hand):
+            self.dealer_turn()
+            
+        # Determine winner
+        winner = determine_winner(self.player_hand, self.dealer_hand)
+        
+        self.display_hands(show_all_dealer_cards=True)
+        
+        if winner == 'player':
+            print("🎉 You win!")
+        elif winner == 'dealer':
+            print("💸 Dealer wins!")
         else:
-            # Show only dealer's first card
-            print(f"Dealer's hand: {self.dealer_hand.cards[0]} + [Hidden Card]")
-        print('='*40)
-    
-    def ask_play_again(self):
-        """Ask player if they want to play again"""
-        while True:
-            play_again = input("\nDo you want to play again? (Y/N): ").strip().lower()
-            if play_again in ['y', 'yes']:
-                print("\n" + "="*50)
-                self.start_game()
-                break
-            elif play_again in ['n', 'no']:
-                print("Thanks for playing! Goodbye! 👋")
-                break
-            else:
-                print("Please enter 'Y' for Yes or 'N' for No.")
+            print("🤝 It's a push!")
+            
+        return winner
 
 def main():
-    """Main function to start the game"""
+    """Main game loop"""
+    print("Welcome to Blackjack!")
+    print("Get as close to 21 as possible without going over!\n")
+    
     game = BlackjackGame()
-    game.start_game()
+    
+    while True:
+        result = game.play_round()
+        
+        play_again = input("\nDo you want to play another round? (Y/N): ").lower()
+        if play_again not in ['y', 'yes']:
+            print("Thanks for playing!")
+            break
 
 if __name__ == "__main__":
     main()
